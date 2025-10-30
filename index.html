@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Libera Slots — hra pre body</title>
+<style>
+  :root{
+    --bg1:#051125; --bg2:#071a2b;
+    --card: rgba(255,255,255,0.03);
+    --accent1:#ff8a65; --accent2:#ffd166; --accent3:#7cf2d6;
+    --muted:#9fb0c8; --radius:16px;
+    --glass: rgba(255,255,255,0.02);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+    background: linear-gradient(180deg,var(--bg1),var(--bg2)); color:#ecf7ff;
+    display:flex; align-items:center; justify-content:center; padding:28px;
+  }
+
+  .wrap{ width:980px; max-width:96%; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; gap:12px;}
+  h1{ margin:0; font-size:1.6rem; letter-spacing:0.3px; }
+  .ver{ color:var(--muted); font-size:0.9rem; }
+
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.008));
+    border-radius:var(--radius); padding:18px; border:1px solid rgba(255,255,255,0.035);
+    box-shadow: 0 18px 60px rgba(2,6,23,0.7);
+  }
+
+  .layout{ display:grid; grid-template-columns: 1fr 360px; gap:18px; }
+  @media (max-width:920px){ .layout{ grid-template-columns:1fr; } }
+
+  .machineTop{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+  .balance{ display:flex; flex-direction:column; gap:6px; }
+  .balance .label{ color:var(--muted); font-size:0.86rem; }
+  .balance .value{ font-size:2.2rem; font-weight:800; color:#fff; }
+
+  .machine{ display:flex; align-items:center; justify-content:center; gap:14px; margin:10px 0 6px; }
+  .reel{ width:140px; height:140px; border-radius:14px; background: linear-gradient(180deg,#081b2a,#051020);
+    border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(2,6,23,0.65);
+    display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;
+  }
+  .strip{ display:flex; flex-direction:column; align-items:center; gap:8px; transform:translateY(0); transition: transform 800ms cubic-bezier(.2,.75,.2,1); will-change:transform; padding:8px 0; }
+  .symbol{ width:100%; text-align:center; font-size:48px; line-height:1; padding:8px 0; border-radius:10px; color:#fff; }
+
+  .glow{ position:absolute; inset:-6px; border-radius:16px; pointer-events:none;
+    background: radial-gradient(circle at 10% 10%, rgba(255,138,101,0.055), transparent 6%),
+                radial-gradient(circle at 90% 90%, rgba(124,242,214,0.03), transparent 8%); mix-blend-mode:screen;
+  }
+
+  .controls{ display:flex; gap:12px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  input[type="number"]{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:inherit; padding:10px 12px; border-radius:10px; min-width:120px; }
+  button{ background: linear-gradient(90deg,var(--accent2),var(--accent1)); color:#081022; padding:12px 16px; border-radius:12px; border:none; cursor:pointer; font-weight:800; box-shadow: 0 8px 28px rgba(255,122,24,0.08); }
+  button.ghost{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); padding:10px 12px; font-weight:700; }
+
+  .centerText{ text-align:center; margin-top:10px; }
+  .resultBig{ font-size:2rem; font-weight:900; letter-spacing:0.4px; color:#fff; }
+
+  .lights{ display:flex; gap:6px; justify-content:center; margin-top:10px; }
+  .lamp{ width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,0.06); box-shadow:0 4px 18px rgba(0,0,0,0.6); }
+
+  .paytable{ margin-top:14px; display:grid; gap:8px; color:var(--muted); font-size:0.95rem; }
+  .payrow{ display:flex; justify-content:space-between; align-items:center; padding:8px; border-radius:10px; background:var(--glass); color:var(--muted); }
+
+  /* right column smaller info */
+  .infoBox{ display:flex; flex-direction:column; gap:10px; }
+  .infoBlock{ background:rgba(255,255,255,0.02); padding:12px; border-radius:10px; color:var(--muted); font-size:0.95rem; }
+
+  #confettiCanvas{ position:fixed; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:9999; }
+
+  @media (max-width:520px){
+    .reel{ width:100px; height:100px; }
+    .symbol{ font-size:36px; }
+    .balance .value{ font-size:1.6rem; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="confettiCanvas"></canvas>
+
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Libera Slots</h1>
+        <div class="ver">zábavná hra (body)</div>
+      </div>
+      <div class="ver" id="playsHeader">Hry: 0</div>
+    </header>
+
+    <div class="layout">
+      <!-- Main card -->
+      <div class="card">
+        <div class="machineTop">
+          <div class="balance">
+            <div class="label">Stav bodov</div>
+            <div class="value" id="balance">1000</div>
+          </div>
+          <div style="text-align:right">
+            <div class="label">Posledný výsledok</div>
+            <div class="resultBig" id="lastResult">—</div>
+          </div>
+        </div>
+
+        <div class="machine" role="application" aria-label="slot machine">
+          <div class="reel" id="reel0"><div class="strip" id="strip0"></div><div class="glow"></div></div>
+          <div class="reel" id="reel1"><div class="strip" id="strip1"></div><div class="glow"></div></div>
+          <div class="reel" id="reel2"><div class="strip" id="strip2"></div><div class="glow"></div></div>
+        </div>
+
+        <div class="centerText">
+          <div class="lights" id="lightsRow">
+            <div class="lamp" style="background:var(--accent1); box-shadow:0 6px 18px rgba(255,77,109,0.22);"></div>
+            <div class="lamp" style="background:var(--accent2); box-shadow:0 6px 18px rgba(255,209,102,0.18);"></div>
+            <div class="lamp" style="background:var(--accent3); box-shadow:0 6px 18px rgba(124,242,214,0.14);"></div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <div class="controls">
+              <label class="muted">Stávka (body):
+                <input id="bet" type="number" min="1" value="10" />
+              </label>
+              <button id="spinBtn">TOČIŤ</button>
+              <button id="saveBtn" class="ghost">Uložiť</button>
+            </div>
+            <div style="margin-top:10px;" id="infoText" class="muted">Pripravené — stlač TOČIŤ</div>
+          </div>
+        </div>
+
+        <div class="paytable" aria-hidden="true">
+          <div class="payrow"><div>777</div><div><strong>50 000 bodov</strong></div></div>
+          <div class="payrow"><div>🍒🍒🍒</div><div><strong>20 000 bodov</strong></div></div>
+          <div class="payrow"><div>🍋🍋🍋</div><div><strong>10 000 bodov</strong></div></div>
+          <div class="payrow"><div>ostatné</div><div><strong>0 bodov</strong></div></div>
+        </div>
+      </div>
+
+      <!-- Right column (minimal info only) -->
+      <div class="card infoBox">
+        <div class="infoBlock">
+          <div style="font-weight:700;margin-bottom:6px;">Uloženie</div>
+          Uložiť/získať stav bodov lokálne. Hra beží v prehliadači.
+        </div>
+        <div class="infoBlock">
+          <div style="font-weight:700;margin-bottom:6px;">Zvuk & efekty</div>
+          Plynulé otáčanie, blikajúce lampy a konfety pri výhre.
+        </div>
+        <div class="infoBlock" style="opacity:0.9;">
+          Prajem príjemnú hru!
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- Web Crypto HMAC PRNG (client-only) ---------- */
+const enc = new TextEncoder();
+async function hmacSha256Hex(keyStr, message){
+  const key = await crypto.subtle.importKey('raw', enc.encode(keyStr), {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return bufferToHex(sig);
+}
+function bufferToHex(buf){
+  const b = new Uint8Array(buf);
+  return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function generateHex(bytes){
+  const arr = crypto.getRandomValues(new Uint8Array(bytes));
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------- Game config (hidden probabilities) ---------- */
+/* Uniform sample space */
+const SPACE = 100_000_000;
+
+// Ranges (counts in SPACE) => determine hidden probabilities
+const RANGES = [
+  { name:'JACKPOT_777', count: 10 },      // extremely rare (10/100_000_000)
+  { name:'CHERRIES', count: 10_000 },     // rare (10k/100M)
+  { name:'LEMONS', count: 100_000 },      // small (100k/100M)
+];
+let cumulative = [];
+(function build(){
+  let start=0;
+  for(const r of RANGES){
+    cumulative.push({ name:r.name, from:start, to:start + r.count - 1 });
+    start += r.count;
+  }
+  cumulative.push({ name:'LOSE', from:start, to: SPACE - 1 });
+})();
+
+/* ---------- State (localStorage-backed) ---------- */
+let serverSeed = localStorage.getItem('ls_serverSeed') || generateHex(32);
+let nonce = parseInt(localStorage.getItem('ls_nonce') || '0',10);
+let balance = parseFloat(localStorage.getItem('ls_balance') || '1000');
+let plays = parseInt(localStorage.getItem('ls_plays') || '0',10);
+
+/* ---------- DOM refs ---------- */
+const balanceEl = document.getElementById('balance');
+const playsHeader = document.getElementById('playsHeader');
+const lastResultEl = document.getElementById('lastResult');
+const infoText = document.getElementById('infoText');
+
+const betEl = document.getElementById('bet');
+const spinBtn = document.getElementById('spinBtn');
+const saveBtn = document.getElementById('saveBtn');
+
+const stripEls = [document.getElementById('strip0'), document.getElementById('strip1'), document.getElementById('strip2')];
+const symList = ['🍒','🍋','🍇','🍉','🍊','🍀','7','⭐'];
+
+/* ---------- Build strip visuals ---------- */
+function fillStrips(){
+  for(let i=0;i<3;i++){
+    const strip = stripEls[i];
+    strip.innerHTML = '';
+    for(let k=0;k<30;k++){
+      const s = document.createElement('div');
+      s.className = 'symbol';
+      s.textContent = symList[Math.floor(Math.random()*symList.length)];
+      strip.appendChild(s);
+    }
+    // append a few fixed for final placement ease
+    for(let k=0;k<6;k++){
+      const s = document.createElement('div');
+      s.className = 'symbol';
+      s.textContent = symList[(k + i) % symList.length];
+      strip.appendChild(s);
+    }
+  }
+}
+
+/* ---------- UI update ---------- */
+function updateUI(){
+  balanceEl.textContent = Math.round(balance*100)/100;
+  playsHeader.textContent = 'Hry: ' + plays;
+}
+updateUI();
+
+/* ---------- uniform int from HMAC ---------- */
+async function uniformFromHmac(seed, clientSeed, nonce){
+  const msg = clientSeed + ':' + nonce;
+  const h = await hmacSha256Hex(seed, msg);
+  // take first 16 hex chars (64 bits)
+  const hexPart = h.slice(0,16);
+  const val = BigInt('0x' + hexPart);
+  const n = Number(val % BigInt(SPACE));
+  return { n, h };
+}
+
+/* ---------- decide which prize range n falls into ---------- */
+function decideRange(n){
+  for(const r of cumulative){
+    if(n >= r.from && n <= r.to) return r.name;
+  }
+  return 'LOSE';
+}
+
+/* ---------- map outcome to symbols & points ---------- */
+function outcomeToResult(name){
+  if(name === 'JACKPOT_777') return { symbols:['7','7','7'], points:50000, label:'JACKPOT 777' };
+  if(name === 'CHERRIES') return { symbols:['🍒','🍒','🍒'], points:20000, label:'🍒🍒🍒' };
+  if(name === 'LEMONS') return { symbols:['🍋','🍋','🍋'], points:10000, label:'🍋🍋🍋' };
+  // lose: random-looking but not a winning triple
+  return { symbols:[
+    symList[Math.floor(Math.random()*symList.length)],
+    symList[Math.floor(Math.random()*symList.length)],
+    symList[Math.floor(Math.random()*symList.length)]
+  ], points:0, label:'Žiadna výhra' };
+}
+
+/* ---------- animate reels ---------- */
+function animateReels(targetSymbols){
+  // initial small random offset
+  for(let i=0;i<3;i++){
+    const strip = stripEls[i];
+    const rand = Math.floor(Math.random() * (strip.children.length - 3));
+    const h = strip.children[0].getBoundingClientRect().height + 8;
+    strip.style.transition = 'transform 250ms cubic-bezier(.2,.9,.2,1)';
+    strip.style.transform = `translateY(${-rand * h}px)`;
+  }
+
+  const durations = [900, 1300, 1700];
+  for(let i=0;i<3;i++){
+    const strip = stripEls[i];
+    setTimeout(()=> {
+      strip.style.transition = `transform ${durations[i]}ms cubic-bezier(.15,.8,.15,1)`;
+      const big = - (strip.children.length * 8 + 600);
+      strip.style.transform = `translateY(${big}px)`;
+    }, 70 + i*70);
+  }
+
+  const finalDelay = Math.max(...durations) + 200;
+  setTimeout(()=>{
+    for(let i=0;i<3;i++){
+      const strip = stripEls[i];
+      const midIdx = 10;
+      if(strip.children[midIdx]) strip.children[midIdx].textContent = targetSymbols[i];
+      const h = strip.children[0].getBoundingClientRect().height + 8;
+      strip.style.transition = 'transform 600ms cubic-bezier(.2,.9,.2,1)';
+      strip.style.transform = `translateY(${-midIdx * h}px)`;
+    }
+  }, finalDelay);
+}
+
+/* ---------- confetti ---------- */
+const confettiCanvas = document.getElementById('confettiCanvas');
+const ctx = confettiCanvas.getContext && confettiCanvas.getContext('2d');
+let confetti = [];
+function resizeCanvas(){ confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+function spawnConfetti(amount=60){
+  confetti = [];
+  for(let i=0;i<amount;i++){
+    confetti.push({
+      x: Math.random()*confettiCanvas.width,
+      y: Math.random()*-confettiCanvas.height*0.6,
+      vx: (Math.random()-0.5)*6,
+      vy: 2 + Math.random()*6,
+      size: 6 + Math.random()*8,
+      rot: Math.random()*360,
+      giro: (Math.random()-0.5)*10,
+      color: ['#ff4d6d','#ffd166','#7cf2d6','#fca5a5','#ffd7a6'][Math.floor(Math.random()*5)]
+    });
+  }
+  if(!confettiRunning) runConfetti();
+}
+let confettiRunning=false;
+function runConfetti(){
+  confettiRunning=true;
+  const step = ()=>{
+    ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height);
+    for(const p of confetti){
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.rot += p.giro;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6); ctx.restore();
+    }
+    confetti = confetti.filter(p=>p.y < confettiCanvas.height + 50);
+    if(confetti.length>0) requestAnimationFrame(step); else { confettiRunning=false; ctx.clearRect(0,0,confettiCanvas.width, confettiCanvas.height); }
+  };
+  requestAnimationFrame(step);
+}
+
+/* ---------- simple beeps ---------- */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function beep(freq, time=0.06, vol=0.06){
+  if(!AudioCtx) return;
+  if(!audioCtx) audioCtx = new AudioCtx();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.value = freq; g.gain.value = vol;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + time);
+}
+
+/* ---------- main spin handler ---------- */
+spinBtn.addEventListener('click', async ()=>{
+  const bet = Number(betEl.value) || 0;
+  if(bet <= 0){ infoText.textContent = 'Zadaj stávku väčšiu než 0.'; return; }
+  if(bet > balance){ infoText.textContent = 'Nedostatok bodov.'; return; }
+
+  spinBtn.disabled = true;
+  infoText.textContent = 'Točí sa…'; beep(880,0.05,0.06);
+
+  const clientSeed = generateHex(16);
+  const { n, h } = await (async ()=>{
+    const msg = clientSeed + ':' + nonce;
+    const HH = await hmacSha256Hex(serverSeed, msg);
+    const hexPart = HH.slice(0,16);
+    const val = BigInt('0x' + hexPart);
+    const num = Number(val % BigInt(SPACE));
+    return { n: num, h: HH };
+  })();
+
+  const rangeName = (function decide(n){
+    for(const r of cumulative) if(n >= r.from && n <= r.to) return r.name;
+    return 'LOSE';
+  })(n);
+
+  const res = (function map(name){
+    if(name==='JACKPOT_777') return { symbols:['7','7','7'], points:50000, label:'JACKPOT 777' };
+    if(name==='CHERRIES') return { symbols:['🍒','🍒','🍒'], points:20000, label:'🍒🍒🍒' };
+    if(name==='LEMONS') return { symbols:['🍋','🍋','🍋'], points:10000, label:'🍋🍋🍋' };
+    return { symbols: [ symList[Math.floor(Math.random()*symList.length)], symList[Math.floor(Math.random()*symList.length)], symList[Math.floor(Math.random()*symList.length)] ], points:0, label:'Žiadna výhra' };
+  })(rangeName);
+
+  animateReels(res.symbols);
+
+  // lamp pulse
+  const lamps = document.querySelectorAll('.lamp');
+  let pI=0; const pInterval = setInterval(()=>{ lamps.forEach((l,idx)=> l.style.opacity = (idx===pI%3)?1:0.35); pI++; }, 140);
+
+  const delay = 2000;
+  setTimeout(()=>{
+    clearInterval(pInterval); lamps.forEach(l=> l.style.opacity=1);
+
+    // reveal result (we don't show hashes or probabilities in UI)
+    if(res.points > 0){
+      balance += res.points;
+      lastResultEl.textContent = '+'+res.points+' bodov';
+      infoText.textContent = res.label + ' — +' + res.points + ' bodov';
+      spawnConfetti(90);
+      beep(1200,0.16,0.12); setTimeout(()=>beep(900,0.11,0.09),140);
+    } else {
+      balance -= bet;
+      lastResultEl.textContent = 'Žiadna výhra';
+      infoText.textContent = `Prehra -${bet} bodov`;
+      beep(220,0.08,0.06);
+    }
+
+    plays++; nonce++;
+    updateUI();
+    spinBtn.disabled = false;
+  }, delay);
+});
+
+/* ---------- save state ---------- */
+saveBtn.addEventListener('click', ()=>{
+  localStorage.setItem('ls_balance', String(balance));
+  localStorage.setItem('ls_nonce', String(nonce));
+  localStorage.setItem('ls_plays', String(plays));
+  localStorage.setItem('ls_serverSeed', serverSeed);
+  infoText.textContent = 'Uložené lokálne';
+});
+
+/* ---------- init ---------- */
+(function init(){
+  fillStrips();
+  updateUI();
+})();
+</script>
+</body>
+</html>
